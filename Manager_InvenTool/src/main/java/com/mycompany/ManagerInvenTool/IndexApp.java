@@ -1,5 +1,4 @@
-package com.mycompany.managerinventool;
-//NOTA: No borrar los comentarios porfis
+package com.mycompany.proyectopagina;
 
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -9,18 +8,76 @@ import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Random;
+
 public class IndexApp extends JFrame {
+    
+    // // seguridad y cifrado
+    
+    private static final String HASHED_ADMIN_PASS = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"; // Este es un hash que guarda la contraseña, lo vi en un video :)
+    private static final byte[] AES_KEY = "ManagerSecretKey".getBytes(StandardCharsets.UTF_8); //Esto es la clave de cifrado para el algoritmo AES
+    private static final String ALGORITHM = "AES"; //Nombre el algoritmo que se usa
+    private static SecretKeySpec secretKeySpec;
 
+    //Esto se carga automaticamente e inicializa el objeto utiliando la clave (AES_KEY) y el algortimo
+    static {
+        try {
+            secretKeySpec = new SecretKeySpec(AES_KEY, ALGORITHM);
+        } catch (Exception e) {
+            System.err.println("Error al inicializar la clave AES: " + e.getMessage());
+        }
+    }
+
+    //Aqui se convierte el texto normal de la contraseña en el hash con el algoritmo SHA-256
+    public static String hashSHA256(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256"); // objeto para generar el hash
+            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8)); //convierte el texto en bytes con el UTF_8
+            //De aqui
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            //Hasta aqui -> recorre cada byte del hash y se convierte en su equivalente hexadecimal
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error: Algoritmo SHA-256 no disponible.", e);
+        }
+    }
+    
+    //Esto cifra el texto
+    public static String encryptAES(String data) throws Exception {
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);// Inicializa el cifrado
+        byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(encryptedBytes); // bytes cifrados a Base64
+    }
+
+    public static String decryptAES(String encryptedData) throws Exception {
+        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        cipher.init(Cipher.DECRYPT_MODE, secretKeySpec); 
+        byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData));
+        return new String(decryptedBytes, StandardCharsets.UTF_8);  
+    }
+    
+    // COLORES
+    
     private ArrayList<String> carrito = new ArrayList<>();
-
-    // Colores
     private final Color primaryColor = new Color(0, 0, 139);
-    private final Color secondaryColor = new Color(255, 215, 0); // Dorado
+    private final Color secondaryColor = new Color(255, 215, 0);
     private final Color bgColor = new Color(244, 244, 244);
     private final Color textColor = new Color(51, 51, 51);
     private final Color hoverColor = new Color(230, 230, 255);
-
-    // Fuentes
+    
+    //fuentes
     private final Font logoFont = new Font("Segoe UI", Font.BOLD, 24);
     private final Font headerFont = new Font("Segoe UI", Font.BOLD, 18);
     private final Font bodyFont = new Font("Segoe UI", Font.PLAIN, 14);
@@ -41,10 +98,8 @@ public class IndexApp extends JFrame {
         JPanel contentPanel = new JPanel(new BorderLayout());
         contentPanel.setBounds(0, 0, getWidth(), getHeight()); 
         
-        // HEADER
         contentPanel.add(createHeader(), BorderLayout.NORTH);
         
-        // MAIN CONTENT (con scroll)
         JScrollPane scrollPane = new JScrollPane(createMainContentWrapper());
         scrollPane.setBorder(null);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -71,9 +126,8 @@ public class IndexApp extends JFrame {
         return mainContentWrapper;
     }
     
-    // esto para configurar y posicionar el Botón Flotante (soportee)
+     // esto para configurar y posicionar el Botón Flotante (soportee)
     private void setupFloatingChatButton(JLayeredPane layeredPane) {
-        
         final int BUTTON_WIDTH = 120;
         final int BUTTON_HEIGHT = 40;
         final int MARGIN = 50; 
@@ -87,7 +141,7 @@ public class IndexApp extends JFrame {
             }
         }
         if (chatButton == null) {
-            chatButton = new JButton("💬 Soporte");
+            chatButton = new JButton("Soporte");
             chatButton.setName("floatingChatButton");
             chatButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
             chatButton.setBackground(secondaryColor);
@@ -108,8 +162,8 @@ public class IndexApp extends JFrame {
             
             layeredPane.add(chatButton, JLayeredPane.PALETTE_LAYER);
         }
-
-        // Esto para que el boton(soporyte) sea estatico
+        
+        // Esto para que el boton(soporte) sea estatico
         int xPos = getWidth() - BUTTON_WIDTH - MARGIN;
         int yPos = getHeight() - BUTTON_HEIGHT - MARGIN;
 
@@ -117,7 +171,9 @@ public class IndexApp extends JFrame {
         layeredPane.revalidate();
         layeredPane.repaint();
     }
-
+    
+    // CHAT
+    
     private class NetworkChatDialog extends JDialog {
         private static final String SERVER_ADDRESS = "localhost";
         private static final int SERVER_PORT = 12345;
@@ -138,21 +194,16 @@ public class IndexApp extends JFrame {
 
         public NetworkChatDialog(JFrame owner) {
             super(owner, "Soporte ManagerBot", false); 
-            
             setSize(320, 450);
             setResizable(false);
             setLayout(new BorderLayout());
-            
             setDefaultCloseOperation(HIDE_ON_CLOSE);
-            
             setupChatContent();
-            
             connectToServer();
         }
 
         private void setupChatContent() {
-            // HEADER
-            JLabel titleLabel = new JLabel("💬 Soporte en Línea", SwingConstants.CENTER);
+            JLabel titleLabel = new JLabel("Soporte en Línea", SwingConstants.CENTER);
             titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
             titleLabel.setBackground(primaryColor);
             titleLabel.setForeground(Color.WHITE);
@@ -160,7 +211,6 @@ public class IndexApp extends JFrame {
             titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
             add(titleLabel, BorderLayout.NORTH);
 
-            // CHAT AREA
             chatArea = new JTextArea();
             chatArea.setEditable(false);
             chatArea.setFont(bodyFont);
@@ -171,7 +221,6 @@ public class IndexApp extends JFrame {
             scrollPane.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
             add(scrollPane, BorderLayout.CENTER);
 
-            // INPUT PANEL (Selector y Botón)
             JPanel inputPanel = new JPanel(new BorderLayout(5, 0));
             inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
 
@@ -195,26 +244,33 @@ public class IndexApp extends JFrame {
                     socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
                     out = new PrintWriter(socket.getOutputStream(), true);
                     in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    chatArea.append("Conectado al servidor de soporte.\n");
+                    chatArea.append("Conectado al servidor\n");
 
                     new Thread(new IncomingReader()).start();
                 } catch (IOException e) {
-                    chatArea.append("No se pudo conectar al servidor (Asegúrate de ejecutar ServidorBot.java).\n");
+                    chatArea.append("No se pudo conectar al servidor (ejecutar primero el ServidorBot.java)\n");
                 }
             }).start();
         }
 
         private void sendMessage() {
             if (out == null) {
-                chatArea.append("Error: No hay conexión con el servidor.\n");
+                chatArea.append("No hay conexión con el servidor\n");
                 return;
             }
             
             String selectedQuestion = (String) messageChooser.getSelectedItem();
             if (selectedQuestion != null && !selectedQuestion.trim().isEmpty()) {
-                chatArea.append("🧑 Tú: " + selectedQuestion + "\n");
+                String fullMessage = "🧑 Tú: " + selectedQuestion.trim();
+                chatArea.append(fullMessage + "\n");
                 
-                out.println(selectedQuestion.trim().toUpperCase()); 
+                try {
+                    String encryptedMessage = IndexApp.encryptAES(selectedQuestion.trim().toUpperCase());
+                    out.println(encryptedMessage); 
+                } catch (Exception e) {
+                    chatArea.append("ERROR DE CIFRADO AL ENVIAR\n");
+                    e.printStackTrace();
+                }
                 
                 chatArea.setCaretPosition(chatArea.getDocument().getLength());
             }
@@ -225,16 +281,23 @@ public class IndexApp extends JFrame {
                 String message;
                 try {
                     while ((message = in.readLine()) != null) {
-                        chatArea.append(message + "\n");
+                        try {
+                            String decryptedMessage = IndexApp.decryptAES(message);
+                            chatArea.append(decryptedMessage + "\n");
+                        } catch (Exception e) {
+                            chatArea.append("[ERROR DE DESCIFRADO] Mensaje recibido en formato incorrecto: " + message + "\n");
+                        }
                         chatArea.setCaretPosition(chatArea.getDocument().getLength());
                     }
                 } catch (IOException e) {
-                    
+                    chatArea.append("Conexión del chat cerrada\n");
                 }
             }
         }
     }
-    // HEADER 
+    
+    // HEADER
+    
     private JPanel createHeader() {
         JPanel header = new JPanel(new BorderLayout());
         
@@ -244,7 +307,7 @@ public class IndexApp extends JFrame {
         topBar.setPreferredSize(new Dimension(Integer.MAX_VALUE, 35)); 
         topBar.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 20));
 
-        JLabel contact = new JLabel("📞 +57 123 456 7890    ✉ infomanagerit@gmail.com");
+        JLabel contact = new JLabel("📞 +57 123 456 7890     ✉ infomanagerit@gmail.com");
         contact.setForeground(Color.WHITE);
         contact.setFont(bodyFont);
         topBar.add(contact, BorderLayout.WEST);
@@ -258,15 +321,14 @@ public class IndexApp extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 IndexApp.this.setVisible(false);
-                PSEApp pseWindow = new PSEApp();
+                PSEApp pseWindow = new PSEApp(IndexApp.this);
                 pseWindow.setVisible(true);
             }
         });
         
         topBar.add(pseButton, BorderLayout.EAST);
-
         header.add(topBar, BorderLayout.NORTH);
-
+        
         //  Barra de navegación principal 
         JPanel navBar = new JPanel(new BorderLayout());
         navBar.setBackground(Color.WHITE);
@@ -287,7 +349,7 @@ public class IndexApp extends JFrame {
             navLinks.add(btn);
         }
         navBar.add(navLinks, BorderLayout.CENTER);
-
+        
         // Buscador y Carrito
         JPanel searchCart = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         searchCart.setBackground(Color.WHITE);
@@ -299,6 +361,16 @@ public class IndexApp extends JFrame {
         JButton searchBtn = new JButton("🔍 Buscar");
         styleButton(searchBtn, bgColor, textColor, 5);
         
+        JButton loginButton = new JButton("🔑 Iniciar Sesión");
+        styleButton(loginButton, secondaryColor, primaryColor, 5); 
+        loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        loginButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        loginButton.addActionListener(e -> {
+            LoginDialog login = new LoginDialog(IndexApp.this, primaryColor, secondaryColor, bodyFont);
+            login.setVisible(true);
+        });
+        
         JButton cartBtn = new JButton("🛒 Carrito (" + carrito.size() + ")");
         styleButton(cartBtn, secondaryColor, primaryColor, 5);
         cartBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Carrito: " + carrito));
@@ -306,6 +378,8 @@ public class IndexApp extends JFrame {
 
         searchCart.add(searchField);
         searchCart.add(searchBtn);
+        searchCart.add(loginButton); 
+        
         cartBtn.setName("cartButton"); 
         searchCart.add(cartBtn);
         navBar.add(searchCart, BorderLayout.EAST);
@@ -315,28 +389,30 @@ public class IndexApp extends JFrame {
     }
 
     // MAIN CONTENT
+    
     private JPanel createMainContent() {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBackground(bgColor);
         
-        // HERO
+         // HERO
         mainPanel.add(createCenteredSection(createHeroPanel(), primaryColor));
         mainPanel.add(Box.createVerticalStrut(40));
-
+        
         // PRODUCTOS
         mainPanel.add(createSectionTitle("Productos Destacados 🛠️"));
         mainPanel.add(Box.createVerticalStrut(15));
         mainPanel.add(createCenteredSection(createFeaturedProductsPanel(), bgColor));
         mainPanel.add(Box.createVerticalStrut(40));
-
+        
         // SERVICIOS
         mainPanel.add(createSectionTitle("Nuestros Servicios 🤝"));
         mainPanel.add(Box.createVerticalStrut(15));
         mainPanel.add(createCenteredSection(createServicesPanel(), primaryColor));
         mainPanel.add(Box.createVerticalStrut(40));
-
+        
         // FOOTER
+
         mainPanel.add(createCenteredSection(createFooter(), primaryColor));
         
         return mainPanel;
@@ -443,14 +519,7 @@ public class IndexApp extends JFrame {
     heroBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
     heroBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
     heroBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-    heroBtn.addActionListener(e -> {
-    IndexApp.this.setVisible(false);
-    InventarioApp inv = new InventarioApp();
-    inv.setVisible(true);
-    });
-
-
+    heroBtn.addActionListener(e -> JOptionPane.showMessageDialog(IndexApp.this, "¡Redirigiendo a productos!"));
 
     hero.add(heroTitle);
     hero.add(Box.createVerticalStrut(15));
@@ -522,8 +591,8 @@ public class IndexApp extends JFrame {
         infoPanel.add(Box.createVerticalStrut(10));
         infoPanel.add(addCart);
         card.add(infoPanel, BorderLayout.CENTER);
-
-        // Hover efecto
+        
+         // Hover efecto
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
@@ -587,7 +656,8 @@ public class IndexApp extends JFrame {
         return card;
     }
     
-    // HELPERS
+    // HELPERS -> pa no repetir codigo
+    
     private void styleButton(JButton btn, Color background, Color foreground, int padding) {
         btn.setBackground(background);
         btn.setForeground(foreground);
@@ -617,6 +687,129 @@ public class IndexApp extends JFrame {
         });
         return btn;
     }
+    
+    // LOGIN (CAPTCHA & HASH) 
+
+    private class LoginDialog extends JDialog {
+        private String captchaChallenge;
+        private JLabel captchaLabel;
+        private JTextField captchaField;
+
+        public LoginDialog(JFrame owner, Color primaryColor, Color secondaryColor, Font bodyFont) {
+            super(owner, "Iniciar Sesión", true);
+            setSize(380, 350); 
+            setLocationRelativeTo(owner);
+            setResizable(false);
+            setLayout(new GridBagLayout());
+            
+            GridBagConstraints gbc = new GridBagConstraints();
+            gbc.insets = new Insets(8, 15, 8, 15);
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            
+            JLabel title = new JLabel("🔑 ACCESO AL SISTEMA", SwingConstants.CENTER);
+            title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            title.setForeground(primaryColor);
+            gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+            add(title, gbc);
+            
+            gbc.gridwidth = 1; gbc.gridy = 1; gbc.weightx = 0.3;
+            add(new JLabel("Usuario:"), gbc);
+            JTextField userField = new JTextField(15);
+            userField.setFont(bodyFont);
+            gbc.gridx = 1; gbc.weightx = 0.7;
+            add(userField, gbc);
+
+            gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.3;
+            add(new JLabel("Clave:"), gbc);
+            JPasswordField passField = new JPasswordField(15);
+            passField.setFont(bodyFont);
+            gbc.gridx = 1; gbc.weightx = 0.7;
+            add(passField, gbc);
+            
+            // CAPTCHA
+            generateCaptcha();
+
+            captchaLabel = new JLabel(captchaChallenge, SwingConstants.CENTER);
+            captchaLabel.setFont(new Font("Comic Sans MS", Font.BOLD, 26)); 
+            captchaLabel.setForeground(new Color(200, 50, 50));
+            captchaLabel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
+
+            gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; gbc.weightx = 1.0; gbc.insets = new Insets(10, 15, 5, 15);
+            add(captchaLabel, gbc);
+
+            // CAPTCHA INPUT
+            JPanel captchaInputPanel = new JPanel(new BorderLayout(5, 0));
+            captchaField = new JTextField(10);
+            captchaField.setFont(bodyFont);
+            
+            JButton refreshBtn = new JButton("↻");
+            refreshBtn.setToolTipText("Generar nuevo CAPTCHA");
+            refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            styleButton(refreshBtn, bgColor, textColor, 2);
+            refreshBtn.setPreferredSize(new Dimension(40, 30));
+            refreshBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            refreshBtn.addActionListener(e -> refreshCaptcha());
+
+            captchaInputPanel.add(captchaField, BorderLayout.CENTER);
+            captchaInputPanel.add(refreshBtn, BorderLayout.EAST);
+
+            gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2; gbc.insets = new Insets(5, 15, 10, 15);
+            add(captchaInputPanel, gbc);
+            
+            // LOGIN BUTTON
+            JButton btnLogin = new JButton("Entrar");
+            btnLogin.setBackground(secondaryColor);
+            btnLogin.setForeground(primaryColor);
+            btnLogin.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            btnLogin.setFocusPainted(false);
+            
+            btnLogin.addActionListener(e -> {
+                String user = userField.getText();
+                String pass = new String(passField.getPassword());
+                String captchaInput = captchaField.getText();
+                
+                if (!captchaInput.equalsIgnoreCase(this.captchaChallenge)) {
+                    JOptionPane.showMessageDialog(this, "❌ El código CAPTCHA es incorrecto.", "Error de Verificación", JOptionPane.ERROR_MESSAGE);
+                    refreshCaptcha();
+                    return;
+                }
+                
+                String inputPassHash = IndexApp.hashSHA256(pass);
+
+                if (user.equals("admin") && inputPassHash.equals(HASHED_ADMIN_PASS)) {
+                    JOptionPane.showMessageDialog(this, "✅ Sesión iniciada como Admin. ¡Bienvenido!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    dispose();
+                } else {
+                    JOptionPane.showMessageDialog(this, "❌ Credenciales incorrectas. (Error de usuario o hash de clave).", "Error", JOptionPane.ERROR_MESSAGE);
+                    refreshCaptcha();
+                }
+            });
+            
+            gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2; gbc.insets = new Insets(15, 15, 15, 15);
+            add(btnLogin, gbc);
+        }
+        
+        // METODOS CAPTCHA
+        private void generateCaptcha() {
+            String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; 
+            StringBuilder captcha = new StringBuilder();
+            Random rnd = new Random();
+            for (int i = 0; i < 6; i++) {
+                captcha.append(chars.charAt(rnd.nextInt(chars.length())));
+            }
+            this.captchaChallenge = captcha.toString();
+        }
+        
+        private void refreshCaptcha() {
+            generateCaptcha();
+            if (captchaLabel != null) {
+                captchaLabel.setText(captchaChallenge);
+                captchaField.setText("");
+            }
+        }
+    }
+    
+    //MAIN
 
     public static void main(String[] args) {
         try {
