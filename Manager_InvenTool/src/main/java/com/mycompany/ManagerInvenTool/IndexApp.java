@@ -285,12 +285,12 @@ public class IndexApp extends JFrame {
                             String decryptedMessage = IndexApp.decryptAES(message);
                             chatArea.append(decryptedMessage + "\n");
                         } catch (Exception e) {
-                            chatArea.append("[ERROR DE DESCIFRADO] Mensaje recibido en formato incorrecto: " + message + "\n");
+                            chatArea.append("Error.... Mensaje recibido en formato incorrecto: " + message + "\n");
                         }
                         chatArea.setCaretPosition(chatArea.getDocument().getLength());
                     }
                 } catch (IOException e) {
-                    chatArea.append("Conexión del chat cerrada\n");
+                    chatArea.append("Conexion del chat cerrada\n");
                 }
             }
         }
@@ -307,7 +307,7 @@ public class IndexApp extends JFrame {
         topBar.setPreferredSize(new Dimension(Integer.MAX_VALUE, 35)); 
         topBar.setBorder(BorderFactory.createEmptyBorder(0, 20, 0, 20));
 
-        JLabel contact = new JLabel("📞 +57 123 456 7890     ✉ infomanagerit@gmail.com");
+        JLabel contact = new JLabel(" +57 123 456 7890      infomanagerit@gmail.com");
         contact.setForeground(Color.WHITE);
         contact.setFont(bodyFont);
         topBar.add(contact, BorderLayout.WEST);
@@ -361,7 +361,7 @@ public class IndexApp extends JFrame {
         JButton searchBtn = new JButton("🔍 Buscar");
         styleButton(searchBtn, bgColor, textColor, 5);
         
-        JButton loginButton = new JButton("🔑 Iniciar Sesión");
+        JButton loginButton = new JButton("Iniciar Sesión");
         styleButton(loginButton, secondaryColor, primaryColor, 5); 
         loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
         loginButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -777,10 +777,10 @@ public class IndexApp extends JFrame {
                 String inputPassHash = IndexApp.hashSHA256(pass);
 
                 if (user.equals("admin") && inputPassHash.equals(HASHED_ADMIN_PASS)) {
-                    JOptionPane.showMessageDialog(this, "✅ Sesión iniciada como Admin. ¡Bienvenido!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Sesión iniciada", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                     dispose();
                 } else {
-                    JOptionPane.showMessageDialog(this, "❌ Credenciales incorrectas. (Error de usuario o hash de clave).", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Credenciales incorrectas", "Error", JOptionPane.ERROR_MESSAGE);
                     refreshCaptcha();
                 }
             });
